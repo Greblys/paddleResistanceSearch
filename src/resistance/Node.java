@@ -35,8 +35,12 @@ public class Node {
 		return (dayTimes & 1) == 1;
 	}
 	
-	public void setVoltage(float v){
+	public void setVoltage(RealVar v){
 		this.v = v;
+	}
+	
+	public RealVar getVoltage(){
+		return v;
 	}
 	
 	public int getDayTimes(){
