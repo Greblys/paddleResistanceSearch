@@ -1,13 +1,18 @@
 package resistance;
 
+import org.chocosolver.solver.search.solution.ISolutionRecorder;
+import org.chocosolver.solver.search.solution.Solution;
+import org.chocosolver.solver.trace.IMessage;
 import org.chocosolver.solver.variables.RealVar;
 import org.chocosolver.solver.variables.VariableFactory;
 
-public class Node {
+public class Node{
 	
 	private int dayTimes = 0;
 	private Node[] children = new Node[4];
 	private RealVar v = VariableFactory.real("voltage", 0, 1024, 0.01, Resistance.getSolver());
+	private RealVar diffSum = VariableFactory.real("children diffs", 0, 3100, 0.01, Resistance.getSolver());
+	private RealVar[] diffs = VariableFactory.realArray("children diffs", 3, 0, 1024, 0.01, Resistance.getSolver());
 	
 	public Node(int dayTimes){
 		this.dayTimes = dayTimes;
@@ -35,12 +40,16 @@ public class Node {
 		return (dayTimes & 1) == 1;
 	}
 	
-	public void setVoltage(RealVar v){
-		this.v = v;
-	}
-	
 	public RealVar getVoltage(){
 		return v;
+	}
+	
+	public RealVar[] getDiffs(){
+		return diffs;
+	}
+	
+	public RealVar getDiffSum(){
+		return diffSum;
 	}
 	
 	public int getDayTimes(){
@@ -65,7 +74,18 @@ public class Node {
 		return children;
 	}
 	
-	public String toString(){
-		return String.format("%b %b %b %b %.2f", isMorningIntact(), isNoonIntact(), isAfternoonIntact(), isEveningIntact(), v);
+	public String toString(Solution sol){
+		return String.format(
+				"%b %b %b %b %.2f %.2f %.2f %.2f %.2f", 
+				isMorningIntact(), 
+				isNoonIntact(), 
+				isAfternoonIntact(), 
+				isEveningIntact(), 
+				sol.getRealBounds(v)[0],
+				sol.getRealBounds(diffs[0])[0],
+				sol.getRealBounds(diffs[1])[0],
+				sol.getRealBounds(diffs[2])[0],
+				sol.getRealBounds(diffSum)[0]
+		);
 	}
 }
