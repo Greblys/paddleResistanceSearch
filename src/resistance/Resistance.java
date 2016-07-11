@@ -1,11 +1,14 @@
 package resistance;
 
+import gnu.trove.map.hash.THashMap;
+
 import org.chocosolver.solver.ResolutionPolicy;
 import org.chocosolver.solver.Solver;
 import org.chocosolver.solver.constraints.IntConstraintFactory;
 import org.chocosolver.solver.constraints.real.IntEqRealConstraint;
 import org.chocosolver.solver.constraints.real.RealConstraint;
 import org.chocosolver.solver.exception.ContradictionException;
+import org.chocosolver.solver.explanations.RuleStore;
 import org.chocosolver.solver.search.solution.BestSolutionsRecorder;
 import org.chocosolver.solver.search.solution.ISolutionRecorder;
 import org.chocosolver.solver.search.solution.Solution;
@@ -22,6 +25,18 @@ class Monitor implements IVariableMonitor<RealVar> {
 	@Override
 	public void onUpdate(RealVar x, IEventType arg1) throws ContradictionException {
 		System.out.println(x);
+		
+	}
+
+	@Override
+	public boolean why(RuleStore arg0, IntVar arg1, IEventType arg2, int arg3) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public void duplicate(Solver arg0, THashMap<Object, Object> arg1) {
+		// TODO Auto-generated method stub
 		
 	}
 	
@@ -137,6 +152,7 @@ public class Resistance implements IVariableMonitor<IntVar> {
 						"{0}=abs({1} - {2})",
 						diffs[i-1], children[i].getVoltage(), children[i-1].getVoltage()
 					));
+					
 					s.post(new RealConstraint(
 						String.format("%d %d-%d minDifference", n.getDayTimes(), i, i-1),
 						"abs({0} - {1}) >= 30",
@@ -187,7 +203,7 @@ public class Resistance implements IVariableMonitor<IntVar> {
 		
 		for(Solution sol : s.getSolutionRecorder().getSolutions()){
 			System.out.println(
-					String.format("Holy grail: %d %d %d %d %d %d", 
+					String.format("Holy grail: %d %d %d %d %d", 
 					sol.getIntVal(R[0]),
 					sol.getIntVal(R[1]),
 					sol.getIntVal(R[2]),
@@ -208,6 +224,18 @@ public class Resistance implements IVariableMonitor<IntVar> {
 	@Override
 	public void onUpdate(IntVar x, IEventType arg1) throws ContradictionException {
 		System.out.println(x);
+		
+	}
+
+	@Override
+	public boolean why(RuleStore arg0, IntVar arg1, IEventType arg2, int arg3) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public void duplicate(Solver arg0, THashMap<Object, Object> arg1) {
+		// TODO Auto-generated method stub
 		
 	}
 }
