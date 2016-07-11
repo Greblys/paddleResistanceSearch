@@ -3,6 +3,7 @@ package resistance;
 import org.chocosolver.solver.search.solution.ISolutionRecorder;
 import org.chocosolver.solver.search.solution.Solution;
 import org.chocosolver.solver.trace.IMessage;
+import org.chocosolver.solver.variables.IntVar;
 import org.chocosolver.solver.variables.RealVar;
 import org.chocosolver.solver.variables.VariableFactory;
 
@@ -10,9 +11,12 @@ public class Node{
 	
 	private int dayTimes = 0;
 	private Node[] children = new Node[4];
-	private RealVar v = VariableFactory.real("voltage", 0, 1024, 0.01, Resistance.getSolver());
-	private RealVar diffSum = VariableFactory.real("children diffs", 0, 3100, 0.01, Resistance.getSolver());
-	private RealVar[] diffs = VariableFactory.realArray("children diffs", 3, 0, 1024, 0.01, Resistance.getSolver());
+	private IntVar iv = VariableFactory.integer("intVoltage", 0, 1024, Resistance.getSolver());
+	private RealVar v = VariableFactory.real(iv, 0.01);
+	private IntVar idiffSum = VariableFactory.integer("children diffs", 0, 3100, Resistance.getSolver());
+	private RealVar diffSum = VariableFactory.real(idiffSum, 0.01);
+	private IntVar[] idiffs = VariableFactory.integerArray("children diffs", 3, 0, 1024, Resistance.getSolver());
+	private RealVar[] diffs = VariableFactory.real(idiffs, 0.01);
 	
 	public Node(int dayTimes){
 		this.dayTimes = dayTimes;
