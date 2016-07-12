@@ -1,21 +1,34 @@
 package resistance;
 
+import gnu.trove.map.hash.THashMap;
+
+import org.chocosolver.solver.Solver;
+import org.chocosolver.solver.exception.ContradictionException;
+import org.chocosolver.solver.explanations.RuleStore;
 import org.chocosolver.solver.search.solution.ISolutionRecorder;
 import org.chocosolver.solver.search.solution.Solution;
 import org.chocosolver.solver.trace.IMessage;
+import org.chocosolver.solver.variables.IVariableMonitor;
+import org.chocosolver.solver.variables.IntVar;
 import org.chocosolver.solver.variables.RealVar;
 import org.chocosolver.solver.variables.VariableFactory;
+import org.chocosolver.solver.variables.events.IEventType;
+import org.chocosolver.solver.variables.events.IntEventType;
 
-public class Node{
+public class Node implements IVariableMonitor<IntVar> {
 	
 	private int dayTimes = 0;
 	private Node[] children = new Node[4];
-	private RealVar v = VariableFactory.real("voltage", 0, 1024, 0.01, Resistance.getSolver());
-	private RealVar diffSum = VariableFactory.real("children diffs", 0, 3100, 0.01, Resistance.getSolver());
-	private RealVar[] diffs = VariableFactory.realArray("children diffs", 3, 0, 1024, 0.01, Resistance.getSolver());
+	private IntVar v;
+	private IntVar diffSum;
+	private IntVar[] diffs;
 	
 	public Node(int dayTimes){
 		this.dayTimes = dayTimes;
+		v = VariableFactory.integer("voltage "+dayTimes, 0, 1024, Resistance.getSolver());
+		diffSum = VariableFactory.integer("children diffs "+dayTimes, 0, 3100, Resistance.getSolver());
+		diffs = VariableFactory.integerArray("children diffs "+dayTimes, 3, 0, 1024, Resistance.getSolver());
+		//v.addMonitor(new Monitor());
 	}
 	
 	public void addChild(Node n){
@@ -40,15 +53,15 @@ public class Node{
 		return (dayTimes & 1) == 1;
 	}
 	
-	public RealVar getVoltage(){
+	public IntVar getVoltage(){
 		return v;
 	}
 	
-	public RealVar[] getDiffs(){
+	public IntVar[] getDiffs(){
 		return diffs;
 	}
 	
-	public RealVar getDiffSum(){
+	public IntVar getDiffSum(){
 		return diffSum;
 	}
 	
@@ -74,18 +87,47 @@ public class Node{
 		return children;
 	}
 	
+	public int getChildrenSize(){
+		return (isMorningIntact() ? 1 : 0) 
+				+ (isAfternoonIntact() ? 1 : 0) 
+				+ (isNoonIntact() ? 1 : 0) 
+				+ (isEveningIntact() ? 1 : 0);
+	}
+	
 	public String toString(Solution sol){
 		return String.format(
-				"%b %b %b %b %.2f %.2f %.2f %.2f %.2f", 
+				"%b %b %b %b %d %d %d %d %d", 
 				isMorningIntact(), 
 				isNoonIntact(), 
 				isAfternoonIntact(), 
 				isEveningIntact(), 
-				sol.getRealBounds(v)[0],
-				sol.getRealBounds(diffs[0])[0],
-				sol.getRealBounds(diffs[1])[0],
-				sol.getRealBounds(diffs[2])[0],
-				sol.getRealBounds(diffSum)[0]
+				sol.getIntVal(v),
+				sol.getIntVal(diffs[0]),
+				sol.getIntVal(diffs[1]),
+				sol.getIntVal(diffs[2]),
+				sol.getIntVal(diffSum)
 		);
+	}
+	@Override
+	public void onUpdate(IntVar x, IEventType e) throws ContradictionException {
+		if(e == IntEventType.INSTANTIATE)
+		System.out.println(String.format("%s %b %b %b %b", 
+				x, 
+				isMorningIntact(), 
+				isNoonIntact(), 
+				isAfternoonIntact(), 
+				isEveningIntact()
+		));
+	}
+
+	@Override
+	public boolean why(RuleStore arg0, IntVar arg1, IEventType arg2, int arg3) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public void duplicate(Solver arg0, THashMap<Object, Object> arg1) {
+		// TODO Auto-generated method stub
 	}
 }
