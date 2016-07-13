@@ -1,5 +1,7 @@
 package resistance;
 
+import java.util.Random;
+
 import gnu.trove.map.hash.THashMap;
 
 import org.chocosolver.solver.ResolutionPolicy;
@@ -12,6 +14,7 @@ import org.chocosolver.solver.explanations.RuleStore;
 import org.chocosolver.solver.search.solution.BestSolutionsRecorder;
 import org.chocosolver.solver.search.solution.ISolutionRecorder;
 import org.chocosolver.solver.search.solution.Solution;
+import org.chocosolver.solver.search.strategy.IntStrategyFactory;
 import org.chocosolver.solver.trace.Chatterbox;
 import org.chocosolver.solver.trace.IMessage;
 import org.chocosolver.solver.variables.IVariableMonitor;
@@ -21,7 +24,31 @@ import org.chocosolver.solver.variables.VariableFactory;
 import org.chocosolver.solver.variables.events.IEventType;
 import org.chocosolver.solver.variables.events.IntEventType;
 
-public class Resistance implements IVariableMonitor<IntVar> {
+class Monitor implements IVariableMonitor<IntVar> {
+
+	@Override
+	public boolean why(RuleStore arg0, IntVar arg1, IEventType arg2, int arg3) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public void duplicate(Solver arg0, THashMap<Object, Object> arg1) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onUpdate(IntVar x, IEventType t)
+			throws ContradictionException {
+		// TODO Auto-generated method stub
+		System.out.println(x);
+	}
+	
+}
+
+
+public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 	
 	static Solver s = new Solver();
 	IntVar[] R = VariableFactory.boundedArray("R", 4, 10, 1000000, s);
@@ -31,11 +58,11 @@ public class Resistance implements IVariableMonitor<IntVar> {
 	IntVar maxr = VariableFactory.fixed(VariableFactory.MAX_INT_BOUND, s);
 	IntVar maxV = VariableFactory.fixed(1024, s);
 	IntVar sum = VariableFactory.integer("sum", 0, 100000, s);
+	Node[] states = new Node[16];	
 	
 	Node head = null;
 	
 	Resistance(){
-		Node[] states = new Node[16];		
 		
 		for(int i = 1; i < 4; i++)
 			s.post(IntConstraintFactory.arithm(R[i-1], "<", R[i]));
@@ -68,9 +95,8 @@ public class Resistance implements IVariableMonitor<IntVar> {
 				IntVar[] b = VariableFactory.integerArray("r+R", 2, 0, 400000, s);
 				IntVar c = VariableFactory.integer("c", 0, 500000, s);
 				
-				b[0] = r;
-				b[1] = dayR;
-				
+				s.post(IntConstraintFactory.arithm(b[0], "=", r));
+				s.post(IntConstraintFactory.arithm(b[1], "=", dayR));
 				s.post(IntConstraintFactory.times(maxV, r, a));
 				s.post(IntConstraintFactory.sum(b,c));
 				s.post(IntConstraintFactory.eucl_div(a, c, n.getVoltage()));
@@ -85,9 +111,9 @@ public class Resistance implements IVariableMonitor<IntVar> {
 		
 		//printTree(head, "");
 		addTreeConstraints(head);
-		IntVar[] diffSums = VariableFactory.integerArray("diffSums", 160, 0, 3100, s);
+		IntVar[] diffSums = VariableFactory.integerArray("diffSums", 16, 0, 3100, s);
 		for(int i = 0; i < 16; i++)
-			diffSums[i] = states[i].getDiffSum();
+			s.post(IntConstraintFactory.arithm(diffSums[i], "=", states[i].getDiffSum()));
 		s.post(IntConstraintFactory.sum(diffSums, sum));
 	}
 	
@@ -96,26 +122,15 @@ public class Resistance implements IVariableMonitor<IntVar> {
 			Node[] children = n.getChildren();
 			IntVar[] diffs = n.getDiffs();
 			IntVar diffSum = n.getDiffSum();
-			IntVar[] volts = VariableFactory.integerArray("volts", n.getChildrenSize(), 0, 1024, s);
-			IntVar[] svolts = VariableFactory.integerArray("volts", n.getChildrenSize(), 0, 1024, s);
-			int vi = 0;
 			
-			for(int i = 0; i < 4; i++)
-				if(children[i] != null){
-					volts[vi++] = children[i].getVoltage();
-				}
-			
-			if(vi > 0) {	
-				s.post(IntConstraintFactory.sort(volts, svolts));
-				for(int i = 1; i < volts.length; i++){
-					s.post(IntConstraintFactory.distance(svolts[i], svolts[i-1], "=", diffs[i-1]));
-					s.post(IntConstraintFactory.distance(svolts[i], svolts[i-1], ">", 30));
+			for(int i = 1; i < 4; i++)
+				if(children[i] == null){
+					s.post(IntConstraintFactory.arithm(diffs[i-1], "=", 0));
+				} else {
+					s.post(IntConstraintFactory.distance(children[i].getVoltage(), children[i-1].getVoltage(), "=", diffs[i-1]));
 				}
 				
-				s.post(IntConstraintFactory.sum(diffs, diffSum));
-			} else {
-				s.post(IntConstraintFactory.arithm(diffSum, "=", 0));
-			}
+			s.post(IntConstraintFactory.sum(diffs, diffSum));
 			
 			for(Node child : n.getChildren())
 				addTreeConstraints(child);
@@ -147,7 +162,10 @@ public class Resistance implements IVariableMonitor<IntVar> {
 		//Chatterbox.showContradiction(s);
 		
 		//Chatterbox.showDecisions(s);
-		Chatterbox.showSolutions(s);
+		Chatterbox.showSolutions(s, this);
+		IntVar[] vars = {R[0], R[1], R[2], R[3], r};
+		Random generator = new Random();
+		s.set(IntStrategyFactory.domOverWDeg(vars, generator.nextLong()));
 		//System.out.println(s.findSolution());
 		s.findOptimalSolution(ResolutionPolicy.MAXIMIZE, sum);
 		System.out.println(s.isFeasible());
@@ -190,8 +208,23 @@ public class Resistance implements IVariableMonitor<IntVar> {
 		// TODO Auto-generated method stub
 		
 	}
-		
 
+	@Override
+	public String print() {
+		Solution sol = s.getSolutionRecorder().getLastSolution();
+		
+		System.out.println(
+				String.format("Holy grail: %d %d %d %d %d %d", 
+				sol.getIntVal(R[0]),
+				sol.getIntVal(R[1]),
+				sol.getIntVal(R[2]),
+				sol.getIntVal(R[3]),
+				sol.getIntVal(r),
+				sol.getIntVal(sum)
+		));
+		//printTree(head, "", sol);
+		return "";
+	}
 	
 	public static void main(String[] args) {
 		Resistance rst = new Resistance();
