@@ -57,7 +57,7 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 	//IntVar intSum = VariableFactory.castToIntVar(sum);
 	IntVar maxr = VariableFactory.fixed(VariableFactory.MAX_INT_BOUND, s);
 	IntVar maxV = VariableFactory.fixed(1024, s);
-	IntVar sum = VariableFactory.integer("sum", 0, 100000, s);
+	IntVar sum = VariableFactory.integer("sum", 0, VariableFactory.MAX_INT_BOUND, s);
 	Node[] states = new Node[16];	
 	
 	Node head = null;
@@ -76,7 +76,7 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 			if(i == 15)
 				head = n;
 			if(i > 0){
-				IntVar[] times = VariableFactory.integerArray("timesR", 4, 0, maxr.getUB(), s);
+				IntVar[] times = VariableFactory.integerArray("timesR", 4, 0, VariableFactory.MAX_INT_BOUND, s);
 				boolean[] isTimes = { n.isMorningIntact(), n.isNoonIntact(), n.isAfternoonIntact(), n.isEveningIntact() };
 				
 				//Parallel resistors sum
@@ -86,14 +86,14 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 					else
 						s.post(IntConstraintFactory.arithm(times[j], "=", 0));
 				
-				IntVar inverseDayR = VariableFactory.integer("inverseDayR", 0, maxr.getUB(), s);
-				IntVar dayR = VariableFactory.integer("dayR "+i, 0, 400000, s); //state resistance
+				IntVar inverseDayR = VariableFactory.integer("inverseDayR", 0, VariableFactory.MAX_INT_BOUND, s);
+				IntVar dayR = VariableFactory.integer("dayR "+i, 0, VariableFactory.MAX_INT_BOUND, s); //state resistance
 				s.post(IntConstraintFactory.sum(times, inverseDayR));
 				s.post(IntConstraintFactory.eucl_div(maxr, inverseDayR, dayR));
 				//dayR.addMonitor(this);
-				IntVar a = VariableFactory.integer("a", 0, 100000000, s);
-				IntVar[] b = VariableFactory.integerArray("r+R", 2, 0, 400000, s);
-				IntVar c = VariableFactory.integer("c", 0, 500000, s);
+				IntVar a = VariableFactory.integer("a", 0, VariableFactory.MAX_INT_BOUND, s);
+				IntVar[] b = VariableFactory.integerArray("r+R", 2, 0, VariableFactory.MAX_INT_BOUND, s);
+				IntVar c = VariableFactory.integer("c", 0, VariableFactory.MAX_INT_BOUND, s);
 				
 				s.post(IntConstraintFactory.arithm(b[0], "=", r));
 				s.post(IntConstraintFactory.arithm(b[1], "=", dayR));
