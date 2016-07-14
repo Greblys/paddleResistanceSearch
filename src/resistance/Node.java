@@ -5,16 +5,14 @@ import gnu.trove.map.hash.THashMap;
 import org.chocosolver.solver.Solver;
 import org.chocosolver.solver.exception.ContradictionException;
 import org.chocosolver.solver.explanations.RuleStore;
-import org.chocosolver.solver.search.solution.ISolutionRecorder;
 import org.chocosolver.solver.search.solution.Solution;
-import org.chocosolver.solver.trace.IMessage;
 import org.chocosolver.solver.variables.IVariableMonitor;
 import org.chocosolver.solver.variables.IntVar;
-import org.chocosolver.solver.variables.RealVar;
 import org.chocosolver.solver.variables.VariableFactory;
 import org.chocosolver.solver.variables.events.IEventType;
 import org.chocosolver.solver.variables.events.IntEventType;
 
+@SuppressWarnings("serial")
 public class Node implements IVariableMonitor<IntVar> {
 	
 	private int dayTimes = 0;
