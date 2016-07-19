@@ -1,5 +1,6 @@
 package resistance;
 
+import java.util.List;
 import java.util.Random;
 
 import gnu.trove.map.hash.THashMap;
@@ -9,19 +10,34 @@ import org.chocosolver.solver.Solver;
 import org.chocosolver.solver.constraints.IntConstraintFactory;
 import org.chocosolver.solver.exception.ContradictionException;
 import org.chocosolver.solver.explanations.RuleStore;
+import org.chocosolver.solver.search.limits.BacktrackCounter;
+import org.chocosolver.solver.search.limits.FailCounter;
+import org.chocosolver.solver.search.loop.Learn;
+import org.chocosolver.solver.search.loop.Move;
+import org.chocosolver.solver.search.loop.Propagate;
+import org.chocosolver.solver.search.loop.PropagateBasic;
+import org.chocosolver.solver.search.loop.SearchLoopFactory;
+import org.chocosolver.solver.search.loop.lns.LNSFactory;
 import org.chocosolver.solver.search.solution.BestSolutionsRecorder;
 import org.chocosolver.solver.search.solution.Solution;
 import org.chocosolver.solver.search.strategy.IntStrategyFactory;
+import org.chocosolver.solver.search.strategy.decision.Decision;
+import org.chocosolver.solver.search.strategy.selectors.VariableSelector;
+import org.chocosolver.solver.search.strategy.selectors.values.IntDomainMin;
+import org.chocosolver.solver.search.strategy.strategy.AbstractStrategy;
 import org.chocosolver.solver.trace.Chatterbox;
 import org.chocosolver.solver.trace.IMessage;
 import org.chocosolver.solver.variables.IVariableMonitor;
 import org.chocosolver.solver.variables.IntVar;
+import org.chocosolver.solver.variables.VF;
+import org.chocosolver.solver.variables.Variable;
 import org.chocosolver.solver.variables.VariableFactory;
 import org.chocosolver.solver.variables.events.IEventType;
 import org.chocosolver.solver.variables.events.IntEventType;
+import org.chocosolver.solver.search.loop.SearchLoop;
 
 @SuppressWarnings("serial")
-class Monitor implements IVariableMonitor<IntVar> {
+class Monitor implements IVariableMonitor<IntVar>{
 
 	@Override
 	public boolean why(RuleStore arg0, IntVar arg1, IEventType arg2, int arg3) {
@@ -46,7 +62,7 @@ class Monitor implements IVariableMonitor<IntVar> {
 
 
 @SuppressWarnings("serial")
-public class Resistance implements IVariableMonitor<IntVar>, IMessage{
+public class Resistance implements IVariableMonitor<IntVar>, IMessage, VariableSelector<IntVar>{
 	
 	static Solver s = new Solver();
 	IntVar[] R = VariableFactory.boundedArray("R", 4, 10, 1000000, s);
@@ -56,6 +72,8 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 	Node[] states = new Node[16];	
 	IntVar minDiff = VariableFactory.integer("minDiff", 0, 1024, s);
 	IntVar[] diffs = VariableFactory.integerArray("global diffs", 11, 0, 1024, s);
+	int[][] map = new int[11][2];
+	
 	
 	Node head = null;
 	
@@ -107,6 +125,8 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 			while(i < 16){
 				for(int j = 0; j < 16; j++){
 					if(states[i].getChildrenSize() == size && states[j].getChildrenSize() == size && i != j){
+						map[diffsi][0] = i;
+						map[diffsi][1] = j;
 						s.post(IntConstraintFactory.distance(
 								states[i].getVoltage(), states[j].getVoltage(), "=", diffs[diffsi++]));
 						i = j;
@@ -139,11 +159,19 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 	}
 	
 	public void solve(){
+		
 		Chatterbox.showSolutions(s, this);
 		IntVar[] vars = {R[0], R[1], R[2], R[3], r};
 		Random generator = new Random();
-		s.set(IntStrategyFactory.domOverWDeg(vars, generator.nextLong()));
+		/*
+		minDiff.addMonitor(this);
+		for(IntVar d : diffs)
+			d.addMonitor(this);
+		*/
+		//s.set(IntStrategyFactory.domOverWDeg(vars, generator.nextLong()));
 		s.set(new BestSolutionsRecorder(minDiff));
+		s.set(IntStrategyFactory.custom(this, IntStrategyFactory.min_value_selector(), vars));
+		//LNSFactory.rlns(s, vars, 1000, generator.nextLong(), new BacktrackCounter(s, 1000000));
 		s.findOptimalSolution(ResolutionPolicy.MAXIMIZE, minDiff);
 		System.out.println(s.isFeasible());
 		System.out.println(s.isSatisfied());
@@ -208,5 +236,44 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 	public static void main(String[] args) {
 		Resistance rst = new Resistance();
 		rst.solve();
+	}
+
+	@Override
+	public IntVar getVariable(IntVar[] vars) {
+		boolean isInstantiated = true;
+		for(IntVar diff : diffs) {
+			if(!diff.isInstantiated()){
+				isInstantiated = false;
+				break;
+			}
+		}
+			
+		if(minDiff.isInstantiated() && isInstantiated){
+			
+			for(IntVar var : vars)
+				if(!var.isInstantiated()){
+					int v = minDiff.getValue();
+					int i = 0;
+					for(;i < diffs.length; i++){
+						if(v == diffs[i].getValue())
+							break;
+					}
+					int s1 = map[i][0];
+					int s2 = map[i][1];
+					if(var == r
+							|| var == R[0] && (states[s1].isMorningIntact() || states[s2].isMorningIntact())
+							|| var == R[1] && (states[s1].isNoonIntact() || states[s2].isNoonIntact())
+							|| var == R[2] && (states[s1].isAfternoonIntact() || states[s2].isAfternoonIntact())
+							|| var == R[3] && (states[s1].isEveningIntact() || states[s2].isEveningIntact())){
+						System.out.println("Labas");
+						return var;
+					} 
+				}
+		}
+				
+		for(IntVar var: vars)
+			if(!var.isInstantiated())
+				return var;
+		return null;
 	}
 }

@@ -128,4 +128,5 @@ public class Node implements IVariableMonitor<IntVar> {
 	public void duplicate(Solver arg0, THashMap<Object, Object> arg1) {
 		// TODO Auto-generated method stub
 	}
+	
 }
