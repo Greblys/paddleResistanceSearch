@@ -1,5 +1,8 @@
 package resistance;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import gnu.trove.map.hash.THashMap;
 
 import org.chocosolver.solver.ResolutionPolicy;
@@ -9,9 +12,12 @@ import org.chocosolver.solver.constraints.real.IntEqRealConstraint;
 import org.chocosolver.solver.constraints.real.RealConstraint;
 import org.chocosolver.solver.exception.ContradictionException;
 import org.chocosolver.solver.explanations.RuleStore;
-import org.chocosolver.solver.search.solution.BestSolutionsRecorder;
-import org.chocosolver.solver.search.solution.ISolutionRecorder;
 import org.chocosolver.solver.search.solution.Solution;
+import org.chocosolver.solver.search.strategy.IntStrategyFactory;
+import org.chocosolver.solver.search.strategy.RealStrategyFactory;
+import org.chocosolver.solver.search.strategy.selectors.values.IntDomainMin;
+import org.chocosolver.solver.search.strategy.selectors.values.RealDomainMin;
+import org.chocosolver.solver.search.strategy.selectors.variables.InputOrder;
 import org.chocosolver.solver.trace.Chatterbox;
 import org.chocosolver.solver.trace.IMessage;
 import org.chocosolver.solver.variables.IVariableMonitor;
@@ -21,6 +27,11 @@ import org.chocosolver.solver.variables.VariableFactory;
 import org.chocosolver.solver.variables.events.IEventType;
 
 class Monitor implements IVariableMonitor<RealVar> {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 
 	@Override
 	public void onUpdate(RealVar x, IEventType arg1) throws ContradictionException {
@@ -42,31 +53,28 @@ class Monitor implements IVariableMonitor<RealVar> {
 	
 }
 
-public class Resistance implements IVariableMonitor<IntVar> {
+public class Resistance implements IVariableMonitor<IntVar>, IMessage {
 	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	static Solver s = new Solver();
-	IntVar[] R = VariableFactory.boundedArray("R", 4, 1, 100000, s);
-	RealVar[] realR = VariableFactory.real(R, 0.01); //same array in float
-	IntVar r = VariableFactory.bounded("r", 1, 100000, s);
-	RealVar realr = VariableFactory.real(r, 0.01);
-	RealVar sum = VariableFactory.real("sum", 0, 50000, 0.01, s);
-	//IntVar intSum = VariableFactory.integer("intSum", 0, 1000000, s);
-	//IntVar intSum = VariableFactory.castToIntVar(sum);
+	RealVar[] realR = VariableFactory.realArray("R", 4, 0.1, 100, 0.1, s); //same array in float
+	RealVar realr = VariableFactory.real("r", 0.1, 100, 0.1, s);
+	RealVar[] diffs = VariableFactory.realArray("diffs", 32, 0, 1024, 0.1, s);
+	RealVar minDiff = VariableFactory.real("minDiff", 0, 1024, 0.1, s);
+	int diffsi = 0;
+	List<Node> l = new LinkedList<Node>();
 	
 	//BestSolutionsRecorder bsr = new BestSolutionsRecorder(intSum);
 	Node head = null;
 	
 	Resistance(){
 		Node[] states = new Node[16];
-		//link two different representations of same array
-		s.post(new IntEqRealConstraint(R, realR, 0));
-		//link two different representations of same variable
-		s.post(new IntEqRealConstraint(r, realr, 0));
-		
 		
 		for(int i = 1; i < 4; i++)
-			s.post(IntConstraintFactory.arithm(R[i-1], "<", R[i]));
-		
+			s.post(new RealConstraint("R1 < R2...", "{0}<{1}", realR[i-1], realR[i]));
 		
 		//calculate voltages
 		for(int i = 0; i < 16; i++){
@@ -76,16 +84,16 @@ public class Resistance implements IVariableMonitor<IntVar> {
 			if(i == 15)
 				head = n;
 			if(i > 0){
-				RealVar[] times = VariableFactory.realArray("timesR", 4, 0, 1, 0.1, s);
+				RealVar[] times = VariableFactory.realArray("timesR " + i, 4, 0, 100000, 0.1, s);
 				boolean[] isTimes = { n.isMorningIntact(), n.isNoonIntact(), n.isAfternoonIntact(), n.isEveningIntact() };
 				
 				for(int j = 0; j < 4; j++)
 					if(isTimes[j])
-						s.post(new RealConstraint("time", "{0}=1/{1}", times[j], realR[j]));
+						s.post(new RealConstraint("time " + i + " " + j, "{0}=1/{1}", times[j], realR[j]));
 					else
-						s.post(new RealConstraint("time", "{0}=0", times[j]));
+						s.post(new RealConstraint("time " + i + " " + j, "{0}=0", times[j]));
 
-				RealVar dayR = VariableFactory.real("dayR", 0, 1000000, 0.01, s); //state resistance
+				RealVar dayR = VariableFactory.real("dayR " + i, 0, 100000, 0.1, s); //state resistance
 				RealConstraint rc = new RealConstraint(
 						String.format("%d totalDayR", i),
 						"{0}=1/({1} + {2} + {3} + {4})",
@@ -98,6 +106,24 @@ public class Resistance implements IVariableMonitor<IntVar> {
 						n.getVoltage(), realr, dayR
 				);
 				s.post(rc2);
+			} else {
+				s.post(new RealConstraint("0 voltage", "{0}=0", n.getVoltage()));
+			}
+		}
+		
+		int diffsi = 0;
+		
+		for (int size = 1; size < 4; size++){
+			int i = 0;
+			while(i < 16){
+				for(int j = 0; j < 16; j++){
+					if(states[i].getChildrenSize() == size && states[j].getChildrenSize() == size && i != j){
+						s.post(new RealConstraint("sibling voltge diff", 
+							"{0} = abs({1} - {2})", diffs[diffsi++], states[i].getVoltage(), states[j].getVoltage()));
+						i = j;
+					}
+				}
+				i++;
 			}
 		}
 		
@@ -105,66 +131,32 @@ public class Resistance implements IVariableMonitor<IntVar> {
 			for(Node n2 : states){
 				if(n1 != n2 && n1.isChild(n2))
 					n1.addChild(n2);
+					
 			}
 		
 		//printTree(head, "");
 		addTreeConstraints(head);
 		
-		s.post(new RealConstraint("total sum",
-				"{0} = {1} + {2} + {3} + {4} + {5} + {6} + {7} + {8} + {9} + {10} + {11} + {12} + {13} + {14} + {15} + {16}",
-				sum, 
-				states[0].getDiffSum(), 
-				states[1].getDiffSum(), 
-				states[2].getDiffSum(),
-				states[3].getDiffSum(),
-				states[4].getDiffSum(),
-				states[5].getDiffSum(),
-				states[6].getDiffSum(),
-				states[7].getDiffSum(),
-				states[8].getDiffSum(),
-				states[9].getDiffSum(),
-				states[10].getDiffSum(),
-				states[11].getDiffSum(),
-				states[12].getDiffSum(),
-				states[13].getDiffSum(),
-				states[14].getDiffSum(),
-				states[15].getDiffSum()
+		s.post(new RealConstraint("minDiff", 
+				"{0} = min({1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11}, {12}, {13}, {14}, {15}, {16}, {17}, {18}, {19},"
+				+ "{20}, {21}, {22}, {23}, {24}, {25}, {26}, {27}, {28}, {29}, {30}, {31}, {32})", 
+				minDiff, diffs[0], diffs[1], diffs[2], diffs[3], diffs[4], diffs[5], diffs[6], diffs[7], diffs[8], diffs[9], diffs[10],
+				diffs[11], diffs[12], diffs[13], diffs[14], diffs[15], diffs[16], diffs[17], diffs[18], diffs[19], diffs[20], diffs[21],
+				diffs[22], diffs[23], diffs[24], diffs[25], diffs[26], diffs[27], diffs[28], diffs[29], diffs[30], diffs[31]
 		));
 	}
 	
 	void addTreeConstraints(Node n){
-		if(n != null){
-			Node[] children = n.getChildren();
-			RealVar[] diffs = n.getDiffs();
-			RealVar diffSum = n.getDiffSum();
+		if(n != null && !l.contains(n)){
 			
-			for(int i = 1; i < 4; i++){
-				if(children[i] != null && children[i-1] != null){
-					/*
-					//to sort them
+			for(Node c : n.getChildren()){
+				if(c != null){
 					s.post(new RealConstraint(
-							"greater than", "{0} > {1}", children[i].getVoltage(), children[i-1].getVoltage()
-					));
-					*/
-					
-					s.post(new RealConstraint(
-						String.format("%d %d-%d totalVoltage", n.getDayTimes(), i, i-1),
-						"{0}=abs({1} - {2})",
-						diffs[i-1], children[i].getVoltage(), children[i-1].getVoltage()
-					));
-					
-					s.post(new RealConstraint(
-						String.format("%d %d-%d minDifference", n.getDayTimes(), i, i-1),
-						"abs({0} - {1}) >= 30",
-						children[i].getVoltage(), children[i-1].getVoltage()
-					));
-				} else {
-					s.post(new RealConstraint("diff", "{0}=0", diffs[i-1]));
+							"child parent diff", "{0} = abs({1} - {2})", diffs[diffsi++], c.getVoltage(), n.getVoltage()));
 				}
 			}
 			
-			s.post(new RealConstraint("diffSum", "{0} = {1} + {2} + {3}", diffSum, diffs[0], diffs[1], diffs[2]));
-			
+			l.add(n);
 			for(Node child : n.getChildren())
 				addTreeConstraints(child);
 		}
@@ -184,26 +176,22 @@ public class Resistance implements IVariableMonitor<IntVar> {
 	}
 	
 	public void solve(){
-		Monitor m = new Monitor();
-		//intSum.addMonitor(this);
-		//sum.addMonitor(m);
-		//r.addMonitor(this);
-		for(IntVar rs : R)
-			rs.addMonitor(this);
-		//r.addMonitor(this);
-		//s.post(new IntEqRealConstraint(intSum, sum, 0.5));
 		//Chatterbox.showContradiction(s);
-		
 		//Chatterbox.showDecisions(s);
-		Chatterbox.showSolutions(s);
+		Chatterbox.showSolutions(s, this);
 		//System.out.println(s.findSolution());
-		s.findOptimalSolution(ResolutionPolicy.MAXIMIZE, sum, 0.01);
+		RealVar[] vars = {realr, realR[0], realR[1], realR[2], realR[3]};
+		//s.set(RealStrategyFactory.custom(new InputOrder<RealVar>(), new RealDomainMin(), vars));
+		s.set(RealStrategyFactory.cyclic_middle(vars));
+		s.findOptimalSolution(ResolutionPolicy.MAXIMIZE, minDiff, 0.1);
 		System.out.println(s.isFeasible());
 		System.out.println(s.isSatisfied());
 		
+		/*
 		for(Solution sol : s.getSolutionRecorder().getSolutions()){
 			System.out.println(
-					String.format("Holy grail: %d %d %d %d %d", 
+					String.format("Holy grail: %s %d %d %d %d %d", 
+					sol.getRealBounds(minDiff),
 					sol.getIntVal(R[0]),
 					sol.getIntVal(R[1]),
 					sol.getIntVal(R[2]),
@@ -212,6 +200,7 @@ public class Resistance implements IVariableMonitor<IntVar> {
 			));
 			printTree(head, "", sol);
 		}
+		*/
 		
 		
 	}
@@ -237,5 +226,19 @@ public class Resistance implements IVariableMonitor<IntVar> {
 	public void duplicate(Solver arg0, THashMap<Object, Object> arg1) {
 		// TODO Auto-generated method stub
 		
+	}
+
+	@Override
+	public String print() {
+		System.out.println(String.format("Solution: %s %s %s %s %s",
+				minDiff,
+				realR[0], 
+				realR[1], 
+				realR[2], 
+				realR[3]
+		));
+		
+		//printTree(head, "", s.getSolutionRecorder().getLastSolution());
+		return "";
 	}
 }

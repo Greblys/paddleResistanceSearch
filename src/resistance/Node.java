@@ -11,15 +11,12 @@ public class Node{
 	
 	private int dayTimes = 0;
 	private Node[] children = new Node[4];
-	private IntVar iv = VariableFactory.integer("intVoltage", 0, 1024, Resistance.getSolver());
-	private RealVar v = VariableFactory.real(iv, 0.01);
-	private IntVar idiffSum = VariableFactory.integer("children diffs", 0, 3100, Resistance.getSolver());
-	private RealVar diffSum = VariableFactory.real(idiffSum, 0.01);
-	private IntVar[] idiffs = VariableFactory.integerArray("children diffs", 3, 0, 1024, Resistance.getSolver());
-	private RealVar[] diffs = VariableFactory.real(idiffs, 0.01);
+	private IntVar iv;
+	private RealVar v;
 	
 	public Node(int dayTimes){
 		this.dayTimes = dayTimes;
+		v = VariableFactory.real("voltage", 0, 1024, 0.1, Resistance.getSolver());
 	}
 	
 	public void addChild(Node n){
@@ -48,14 +45,6 @@ public class Node{
 		return v;
 	}
 	
-	public RealVar[] getDiffs(){
-		return diffs;
-	}
-	
-	public RealVar getDiffSum(){
-		return diffSum;
-	}
-	
 	public int getDayTimes(){
 		return dayTimes;
 	}
@@ -78,18 +67,21 @@ public class Node{
 		return children;
 	}
 	
+	public int getChildrenSize(){
+		return (isMorningIntact() ? 1 : 0) 
+				+ (isAfternoonIntact() ? 1 : 0) 
+				+ (isNoonIntact() ? 1 : 0) 
+				+ (isEveningIntact() ? 1 : 0);
+	}
+	
 	public String toString(Solution sol){
 		return String.format(
-				"%b %b %b %b %.2f %.2f %.2f %.2f %.2f", 
+				"%b %b %b %b %s", 
 				isMorningIntact(), 
 				isNoonIntact(), 
 				isAfternoonIntact(), 
 				isEveningIntact(), 
-				sol.getRealBounds(v)[0],
-				sol.getRealBounds(diffs[0])[0],
-				sol.getRealBounds(diffs[1])[0],
-				sol.getRealBounds(diffs[2])[0],
-				sol.getRealBounds(diffSum)[0]
+				v
 		);
 	}
 }
