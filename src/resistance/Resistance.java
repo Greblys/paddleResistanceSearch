@@ -12,6 +12,8 @@ import org.chocosolver.solver.explanations.RuleStore;
 import org.chocosolver.solver.search.solution.BestSolutionsRecorder;
 import org.chocosolver.solver.search.solution.Solution;
 import org.chocosolver.solver.search.strategy.IntStrategyFactory;
+import org.chocosolver.solver.search.strategy.selectors.values.IntDomainMin;
+import org.chocosolver.solver.search.strategy.selectors.variables.InputOrder;
 import org.chocosolver.solver.trace.Chatterbox;
 import org.chocosolver.solver.trace.IMessage;
 import org.chocosolver.solver.variables.IVariableMonitor;
@@ -49,8 +51,8 @@ class Monitor implements IVariableMonitor<IntVar> {
 public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 	
 	static Solver s = new Solver();
-	IntVar[] R = VariableFactory.boundedArray("R", 4, 10, 1000000, s);
-	IntVar r = VariableFactory.bounded("r", 10, 1000000, s);
+	IntVar[] R = VariableFactory.boundedArray("R", 4, 1000, 10000, s);
+	IntVar r = VariableFactory.bounded("r", 1000, 10000, s);
 	//IntVar intSum = VariableFactory.integer("intSum", 0, 1000000, s);
 	//IntVar intSum = VariableFactory.castToIntVar(sum);
 	IntVar maxr = VariableFactory.fixed(VariableFactory.MAX_INT_BOUND, s);
@@ -58,7 +60,7 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 	IntVar sum = VariableFactory.integer("sum", 0, VariableFactory.MAX_INT_BOUND, s);
 	Node[] states = new Node[16];	
 	IntVar minDiff = VariableFactory.integer("minDiff", 0, 1024, s);
-	IntVar[] diffs = VariableFactory.integerArray("global diffs", 11, 0, 1024, s);
+	IntVar[] diffs = VariableFactory.integerArray("global diffs", 43, 0, 1024, s);
 	
 	Node head = null;
 	
@@ -100,63 +102,6 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 				s.post(IntConstraintFactory.times(maxV, r, a));
 				s.post(IntConstraintFactory.sum(b,c));
 				s.post(IntConstraintFactory.eucl_div(a, c, n.getVoltage()));
-				
-				
-				//constraints for r 
-				IntVar d = VariableFactory.integer("d", 0, VariableFactory.MAX_INT_BOUND, s);
-				IntVar e = VariableFactory.integer("e", 0, VariableFactory.MAX_INT_BOUND, s);
-				IntVar ri = VariableFactory.integer("r", 0, VariableFactory.MAX_INT_BOUND, s);
-				IntVar rid = VariableFactory.integer("r", 0, VariableFactory.MAX_INT_BOUND, s);
-				IntVar delta = VariableFactory.fixed(2, s);
-				s.post(IntConstraintFactory.distance(maxV, n.getVoltage(), "=", d));
-				s.post(IntConstraintFactory.eucl_div(n.getVoltage(), d, e));
-				s.post(IntConstraintFactory.times(e,dayR,ri));
-				s.post(IntConstraintFactory.distance(r, ri, "<", rid));
-				s.post(IntConstraintFactory.eucl_div(dayR, delta, rid));
-
-				
-				//constraints for dayR
-				IntVar f = VariableFactory.integer("f", 0, VariableFactory.MAX_INT_BOUND, s);
-				IntVar g = VariableFactory.integer("g", 0, VariableFactory.MAX_INT_BOUND, s);
-				IntVar dayRi = VariableFactory.integer("dayRi", 0, VariableFactory.MAX_INT_BOUND, s);
-				IntVar dayRid = VariableFactory.integer("dayRi", 0, VariableFactory.MAX_INT_BOUND, s);
-				
-				s.post(IntConstraintFactory.distance(maxV, n.getVoltage(), "=", f));
-				s.post(IntConstraintFactory.eucl_div(f, n.getVoltage(), g));
-				s.post(IntConstraintFactory.times(g,r,dayRi));
-				s.post(IntConstraintFactory.distance(dayRi, dayR, "<", dayRid));
-				s.post(IntConstraintFactory.eucl_div(dayR, delta, dayRid));
-				
-				
-				//constraints for inverseDayR
-				IntVar inverseDayRi = VariableFactory.integer("inverseDayRi", 0, VariableFactory.MAX_INT_BOUND, s);
-				IntVar inverseDayRid = VariableFactory.integer("inverseDayRi", 0, VariableFactory.MAX_INT_BOUND, s);
-				s.post(IntConstraintFactory.eucl_div(maxr, dayR, inverseDayRi));
-				s.post(IntConstraintFactory.distance(inverseDayRi, inverseDayR, "<", inverseDayRid));
-				s.post(IntConstraintFactory.eucl_div(inverseDayR, delta, inverseDayRid));
-				
-				
-				//constraints for each cell R
-				for(int j = 0; j < 4; j++){
-					IntVar[] l = VariableFactory.boundedArray("l", 4, 0, VariableFactory.MAX_INT_BOUND, s);
-					for(int k = 0; k < 4; k++){
-						if(j == k){
-							s.post(IntConstraintFactory.arithm(l[j], "=", 0));
-						} else {
-							s.post(IntConstraintFactory.arithm(l[j], "=", times[k]));
-						}
-					}
-					IntVar m = VariableFactory.integer("m", 0, VariableFactory.MAX_INT_BOUND, s);
-					s.post(IntConstraintFactory.sum(l,m));
-					IntVar inverseR = VariableFactory.integer("inverseR", 0, VariableFactory.MAX_INT_BOUND, s);
-					s.post(IntConstraintFactory.distance(inverseDayR, m, "=", inverseR));
-					IntVar Ri = VariableFactory.integer("Ri", 0, VariableFactory.MAX_INT_BOUND, s);
-					IntVar Rid = VariableFactory.integer("Rid", 0, VariableFactory.MAX_INT_BOUND, s);
-					s.post(IntConstraintFactory.eucl_div(maxr, inverseR, Ri));
-					s.post(IntConstraintFactory.eucl_div(R[j], delta, Rid));
-					s.post(IntConstraintFactory.distance(Ri, R[j], "<", Rid));
-				}
-				
 			}
 		}
 		
@@ -180,8 +125,10 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 		
 		for(Node n1 : states)
 			for(Node n2 : states){
-				if(n1 != n2 && n1.isChild(n2))
+				if(n1 != n2 && n1.isChild(n2)){
 					n1.addChild(n2);
+					s.post(IntConstraintFactory.distance(n1.getVoltage(), n2.getVoltage(), "=", diffs[diffsi++]));
+				}
 			}
 	}
 	
@@ -201,11 +148,10 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 	public void solve(){
 		//Chatterbox.showContradiction(s);
 		//Chatterbox.showDecisions(s);
-		Chatterbox.showStatisticsDuringResolution(s,300000);;
 		Chatterbox.showSolutions(s, this);
-		IntVar[] vars = {R[0], R[1], R[2], R[3], r};
+		IntVar[] vars = {r, R[0], R[1], R[2], R[3]};
 		Random generator = new Random();
-		s.set(IntStrategyFactory.domOverWDeg(vars, generator.nextLong()));
+		s.set(IntStrategyFactory.custom(new InputOrder<IntVar>(), new IntDomainMin(), vars));
 		s.set(new BestSolutionsRecorder(minDiff));
 		//System.out.println(s.findSolution());
 		s.findOptimalSolution(ResolutionPolicy.MAXIMIZE, minDiff);
@@ -238,6 +184,7 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage{
 				R[3].getValue(),
 				r.getValue()
 		));
+		printTree(head, "", s.getSolutionRecorder().getLastSolution());
 	}
 
 	@Override
