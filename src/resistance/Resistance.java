@@ -60,10 +60,10 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage {
 	 */
 	private static final long serialVersionUID = 1L;
 	static Solver s = new Solver();
-	RealVar[] realR = VariableFactory.realArray("R", 4, 0.1, 100, 0.1, s); //same array in float
-	RealVar realr = VariableFactory.real("r", 0.1, 100, 0.1, s);
-	RealVar[] diffs = VariableFactory.realArray("diffs", 32, 0, 1024, 0.1, s);
-	RealVar minDiff = VariableFactory.real("minDiff", 0, 1024, 0.1, s);
+	RealVar[] realR = VariableFactory.realArray("R", 4, 0, 100, 1, s); //same array in float
+	RealVar realr = VariableFactory.real("r", 0, 100, 1, s);
+	RealVar[] diffs = VariableFactory.realArray("diffs", 32, 0, 1024, 1, s);
+	RealVar minDiff = VariableFactory.real("minDiff", 0, 1024, 1, s);
 	int diffsi = 0;
 	List<Node> l = new LinkedList<Node>();
 	
@@ -84,7 +84,7 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage {
 			if(i == 15)
 				head = n;
 			if(i > 0){
-				RealVar[] times = VariableFactory.realArray("timesR " + i, 4, 0, 100000, 0.1, s);
+				RealVar[] times = VariableFactory.realArray("timesR " + i, 4, 0, 100000, 1, s);
 				boolean[] isTimes = { n.isMorningIntact(), n.isNoonIntact(), n.isAfternoonIntact(), n.isEveningIntact() };
 				
 				for(int j = 0; j < 4; j++)
@@ -93,7 +93,7 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage {
 					else
 						s.post(new RealConstraint("time " + i + " " + j, "{0}=0", times[j]));
 
-				RealVar dayR = VariableFactory.real("dayR " + i, 0, 100000, 0.1, s); //state resistance
+				RealVar dayR = VariableFactory.real("dayR " + i, 0, 100000, 1, s); //state resistance
 				RealConstraint rc = new RealConstraint(
 						String.format("%d totalDayR", i),
 						"{0}=1/({1} + {2} + {3} + {4})",
@@ -183,7 +183,7 @@ public class Resistance implements IVariableMonitor<IntVar>, IMessage {
 		RealVar[] vars = {realr, realR[0], realR[1], realR[2], realR[3]};
 		//s.set(RealStrategyFactory.custom(new InputOrder<RealVar>(), new RealDomainMin(), vars));
 		s.set(RealStrategyFactory.cyclic_middle(vars));
-		s.findOptimalSolution(ResolutionPolicy.MAXIMIZE, minDiff, 0.1);
+		s.findOptimalSolution(ResolutionPolicy.MAXIMIZE, minDiff, 1);
 		System.out.println(s.isFeasible());
 		System.out.println(s.isSatisfied());
 		

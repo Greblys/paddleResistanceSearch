@@ -16,7 +16,7 @@ public class Node{
 	
 	public Node(int dayTimes){
 		this.dayTimes = dayTimes;
-		v = VariableFactory.real("voltage", 0, 1024, 0.1, Resistance.getSolver());
+		v = VariableFactory.real("voltage", 0, 1024, 1, Resistance.getSolver());
 	}
 	
 	public void addChild(Node n){
