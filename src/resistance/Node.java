@@ -94,16 +94,12 @@ public class Node implements IVariableMonitor<IntVar> {
 	
 	public String toString(Solution sol){
 		return String.format(
-				"%b %b %b %b %d %d %d %d %d", 
+				"%b %b %b %b %d", 
 				isMorningIntact(), 
 				isNoonIntact(), 
 				isAfternoonIntact(), 
 				isEveningIntact(), 
-				sol.getIntVal(v),
-				sol.getIntVal(diffs[0]),
-				sol.getIntVal(diffs[1]),
-				sol.getIntVal(diffs[2]),
-				sol.getIntVal(diffSum)
+				sol.getIntVal(v)
 		);
 	}
 	@Override
